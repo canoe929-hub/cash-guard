@@ -87,9 +87,16 @@ $("add").onclick=()=>{const a=parseInt($("amt").value,10);if(!a||a<=0){$("amt").
  items.push({id:Date.now(),amt:a,cat,note:$("note").value.trim(),date:today(),done:false});
  $("amt").value="";$("note").value="";save();draw();$("amt").focus()};
 $("list").onchange=e=>{const id=+e.target.dataset.id;const i=items.find(x=>x.id===id);if(i){i.done=e.target.checked;save();draw()}};
-$("copy").onclick=async()=>{const t=items.filter(i=>!i.done).map(i=>`${i.date} ${i.cat} ${i.amt}${i.note?" "+i.note:""}`).join("\n")||"沒有待補項目";
+function buildText(){const p=items.filter(i=>!i.done);if(!p.length)return "沒有待補項目";const g={};p.forEach(i=>{(g[i.date]=g[i.date]||[]).push(i)});let all=0;const L=[];
+ Object.keys(g).sort().forEach(d=>{const s=g[d].reduce((a,b)=>a+b.amt,0);all+=s;L.push(d);g[d].forEach(i=>L.push(`  ${i.cat} ${i.amt}${i.note?" "+i.note:""}`));L.push(`  ➜ 當日現金合計 ${s} 元`,"")});
+ L.push(`總計 ${p.length} 筆，共 ${all} 元`);return L.join("\n")}
+$("copy").onclick=async()=>{const t=buildText();
  try{await navigator.clipboard.writeText(t);$("copy").textContent="已複製 ✓"}catch(e){$("copy").textContent="請手動長按選取"}
  setTimeout(()=>$("copy").textContent="複製待補清單",1500)};
+const unusedExport=async()=>{const L=["【現金記錄】"+today(),""];items.forEach(i=>L.push(`${i.date} ${i.cat} ${i.amt}${i.note?" "+i.note:""} ${i.done?"[已補]":"[待補]"}`));L.push("","【對帳紀錄】");hist.forEach(h=>L.push(`${h.date} 帳上${h.app} 實際${h.real} 差額${h.diff}`));
+ const f=new File([L.join("\n")],"cash-"+today()+".txt",{type:"text/plain"});
+ try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e.name==="AbortError")return}
+ const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove()};
 $("chk").onclick=()=>{const a=parseInt($("appBal").value,10),r=parseInt($("realBal").value,10);if(isNaN(a)||isNaN(r))return;
  const d=r-a;hist.push({date:today(),app:a,real:r,diff:d});save();draw();
  if(d<0){$("res").className="res warn";$("res").textContent=`漏記了約 ${-d} 元`;gapAmt=-d;$("gap").classList.remove("hide")}
