@@ -67,7 +67,7 @@ label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
 <div class="sum" id="brk"></div>
 <button class="big ghost hide" id="gap">把差額存進隨手記</button>
 </div>
-<div class="card"><div class="sum">最近對帳紀錄</div><div id="hist"></div></div>
+<div class="card"><div class="sum" id="histT">今日對帳紀錄</div><div id="hist"></div><button class="big ghost" id="more">展開全部紀錄</button></div>
 </section>
 </main>
 <script>
@@ -84,12 +84,15 @@ function draw(){
  const p=items.filter(i=>!i.done),s=p.reduce((a,b)=>a+b.amt,0);$("pendTip").textContent=p.length?`隨手記還有 ${s} 元尚未補進天天記帳，對帳時會自動扣除，避免重複計算`:"";
  $("sum").textContent=p.length?`還有 ${p.length} 筆沒補進天天記帳，共 ${s} 元`:"全部都補進去了 ✓";
  $("list").innerHTML=items.slice().reverse().slice(0,30).map(i=>`<div class="row"><input type="checkbox" data-id="${i.id}" ${i.done?"checked":""}><div class="m ${i.done?"done":""}">${esc(i.cat)} ${i.amt} 元<br><small>${i.date}${i.note?" · "+esc(i.note):""}</small></div></div>`).join("")||'<small style="color:var(--mut)">還沒有紀錄</small>';
- $("hist").innerHTML=hist.slice().reverse().slice(0,7).map(h=>`<div class="row"><div class="m">${h.date}<br><small>帳上 ${h.app}${h.pend?" − 待補 "+h.pend:""} / 實際 ${h.real}</small></div><b class="${h.diff<0?"warn":"ok"}">${h.diff>0?"+":""}${h.diff}</b></div>`).join("")||'<small style="color:var(--mut)">尚無紀錄</small>';
+ $("hist").innerHTML=histView().map(h=>`<div class="row"><div class="m">${h.date}<br><small>帳上 ${h.app}${h.pend?" − 待補 "+h.pend:""} / 實際 ${h.real}</small></div><b class="${h.diff<0?"warn":"ok"}">${h.diff>0?"+":""}${h.diff}</b></div>`).join("")||'<small style="color:var(--mut)">'+(hist.length?"今天還沒對帳":"尚無紀錄")+'</small>';
 }
 $("add").onclick=()=>{const a=parseInt($("amt").value,10);if(!a||a<=0){$("amt").focus();return}
  items.push({id:Date.now(),amt:a,cat,note:$("note").value.trim(),date:today(),done:false});
  $("amt").value="";$("note").value="";save();draw();$("amt").focus()};
 $("list").onchange=e=>{const id=+e.target.dataset.id;const i=items.find(x=>x.id===id);if(i){i.done=e.target.checked;save();draw()}};
+let showAll=false;
+function histView(){$("histT").textContent=showAll?"全部對帳紀錄":"今日對帳紀錄";$("more").textContent=showAll?"收合，只看今天":"展開全部紀錄";return showAll?hist.slice().reverse():hist.filter(h=>h.date===today()).reverse()}
+$("more").onclick=()=>{showAll=!showAll;draw()};
 let clrT=null;
 $("clr").onclick=()=>{const n=items.filter(i=>i.done).length;
  if(!n){$("clr").textContent="目前沒有已補紀錄";setTimeout(()=>$("clr").textContent="清除已補紀錄",1500);return}
