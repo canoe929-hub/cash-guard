@@ -61,8 +61,10 @@ label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
 <input id="appBal" type="number" inputmode="numeric" placeholder="例：1200">
 <label>錢包實際現金</label>
 <input id="realBal" type="number" inputmode="numeric" placeholder="例：950">
+<div class="sum" id="pendTip"></div>
 <button class="big" id="chk">對帳</button>
 <div class="res" id="res"></div>
+<div class="sum" id="brk"></div>
 <button class="big ghost hide" id="gap">把差額存進隨手記</button>
 </div>
 <div class="card"><div class="sum">最近對帳紀錄</div><div id="hist"></div></div>
@@ -79,10 +81,10 @@ function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">
 function drawCats(){$("cats").innerHTML=CATS.map(c=>`<button class="${c===cat?"on":""}" data-c="${c}">${c}</button>`).join("")}
 $("cats").onclick=e=>{if(e.target.dataset.c){cat=e.target.dataset.c;drawCats()}};
 function draw(){
- const p=items.filter(i=>!i.done),s=p.reduce((a,b)=>a+b.amt,0);
+ const p=items.filter(i=>!i.done),s=p.reduce((a,b)=>a+b.amt,0);$("pendTip").textContent=p.length?`隨手記還有 ${s} 元尚未補進天天記帳，對帳時會自動扣除，避免重複計算`:"";
  $("sum").textContent=p.length?`還有 ${p.length} 筆沒補進天天記帳，共 ${s} 元`:"全部都補進去了 ✓";
  $("list").innerHTML=items.slice().reverse().slice(0,30).map(i=>`<div class="row"><input type="checkbox" data-id="${i.id}" ${i.done?"checked":""}><div class="m ${i.done?"done":""}">${esc(i.cat)} ${i.amt} 元<br><small>${i.date}${i.note?" · "+esc(i.note):""}</small></div></div>`).join("")||'<small style="color:var(--mut)">還沒有紀錄</small>';
- $("hist").innerHTML=hist.slice().reverse().slice(0,7).map(h=>`<div class="row"><div class="m">${h.date}<br><small>帳上 ${h.app} / 實際 ${h.real}</small></div><b class="${h.diff<0?"warn":"ok"}">${h.diff>0?"+":""}${h.diff}</b></div>`).join("")||'<small style="color:var(--mut)">尚無紀錄</small>';
+ $("hist").innerHTML=hist.slice().reverse().slice(0,7).map(h=>`<div class="row"><div class="m">${h.date}<br><small>帳上 ${h.app}${h.pend?" − 待補 "+h.pend:""} / 實際 ${h.real}</small></div><b class="${h.diff<0?"warn":"ok"}">${h.diff>0?"+":""}${h.diff}</b></div>`).join("")||'<small style="color:var(--mut)">尚無紀錄</small>';
 }
 $("add").onclick=()=>{const a=parseInt($("amt").value,10);if(!a||a<=0){$("amt").focus();return}
  items.push({id:Date.now(),amt:a,cat,note:$("note").value.trim(),date:today(),done:false});
@@ -104,7 +106,8 @@ const unusedExport=async()=>{const L=["【現金記錄】"+today(),""];items.for
  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e.name==="AbortError")return}
  const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove()};
 $("chk").onclick=()=>{const a=parseInt($("appBal").value,10),r=parseInt($("realBal").value,10);if(isNaN(a)||isNaN(r))return;
- const d=r-a;hist.push({date:today(),app:a,real:r,diff:d});save();draw();
+ const pend=items.filter(i=>!i.done).reduce((x,y)=>x+y.amt,0);const exp=a-pend;const d=r-exp;hist.push({date:today(),app:a,pend,real:r,diff:d});save();draw();
+ $("brk").textContent=`帳上 ${a}${pend?` − 待補 ${pend}`:""} = 預期現金 ${exp}；實際 ${r}`;
  if(d<0){$("res").className="res warn";$("res").textContent=`漏記了約 ${-d} 元`;gapAmt=-d;$("gap").classList.remove("hide")}
  else if(d>0){$("res").className="res warn";$("res").textContent=`錢包多了 ${d} 元（可能少記收入或找零）`;$("gap").classList.add("hide")}
  else{$("res").className="res ok";$("res").textContent="帳目完全吻合 🎉";$("gap").classList.add("hide")}};
