@@ -51,6 +51,7 @@ label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
 <div class="sum" id="sum"></div>
 <div id="list"></div>
 <button class="big ghost" id="copy">複製待補清單</button>
+<button class="big ghost" id="clr">清除已補紀錄</button>
 </div>
 </section>
 
@@ -87,6 +88,11 @@ $("add").onclick=()=>{const a=parseInt($("amt").value,10);if(!a||a<=0){$("amt").
  items.push({id:Date.now(),amt:a,cat,note:$("note").value.trim(),date:today(),done:false});
  $("amt").value="";$("note").value="";save();draw();$("amt").focus()};
 $("list").onchange=e=>{const id=+e.target.dataset.id;const i=items.find(x=>x.id===id);if(i){i.done=e.target.checked;save();draw()}};
+let clrT=null;
+$("clr").onclick=()=>{const n=items.filter(i=>i.done).length;
+ if(!n){$("clr").textContent="目前沒有已補紀錄";setTimeout(()=>$("clr").textContent="清除已補紀錄",1500);return}
+ if(!clrT){$("clr").textContent=`再按一次，確認清除 ${n} 筆`;clrT=setTimeout(()=>{clrT=null;$("clr").textContent="清除已補紀錄"},3000);return}
+ clearTimeout(clrT);clrT=null;items=items.filter(i=>!i.done);save();draw();$("clr").textContent="已清除 ✓";setTimeout(()=>$("clr").textContent="清除已補紀錄",1500)};
 function buildText(){const p=items.filter(i=>!i.done);if(!p.length)return "沒有待補項目";const g={};p.forEach(i=>{(g[i.date]=g[i.date]||[]).push(i)});let all=0;const L=[];
  Object.keys(g).sort().forEach(d=>{const s=g[d].reduce((a,b)=>a+b.amt,0);all+=s;L.push(d);g[d].forEach(i=>L.push(`  ${i.cat} ${i.amt}${i.note?" "+i.note:""}`));L.push(`  ➜ 當日現金合計 ${s} 元`,"")});
  L.push(`總計 ${p.length} 筆，共 ${all} 元`);return L.join("\n")}
