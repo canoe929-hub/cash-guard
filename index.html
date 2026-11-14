@@ -32,13 +32,14 @@ label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
 .sum{font-size:14px;color:var(--mut);margin-bottom:8px}
 .res{font-size:22px;font-weight:600;margin:8px 0}
 .warn{color:var(--warn)}.ok{color:var(--ac)}
+textarea{width:100%;height:140px;padding:12px;font-size:14px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font-family:inherit}
 .hide{display:none}
 </style>
 </head>
 <body>
 <main>
 <h1>💵 現金不漏記</h1>
-<div class="tabs"><button id="t1" class="on">隨手記</button><button id="t2">每晚對帳</button></div>
+<div class="tabs"><button id="t1" class="on">隨手記</button><button id="t2">每晚對帳</button><button id="t3">刷卡記帳</button></div>
 
 <section id="p1">
 <div class="card">
@@ -69,6 +70,22 @@ label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
 </div>
 <div class="card"><div class="sum" id="histT">今日對帳紀錄</div><div id="hist"></div><button class="big ghost" id="more">展開全部紀錄</button></div>
 </section>
+
+<section id="p3" class="hide">
+<div class="card">
+<label>貼上 Apple Pay 備忘錄「記帳暫存」</label>
+<textarea id="apTxt" placeholder="11/14|7-Eleven|$64.00|卡片|applepay"></textarea>
+<button class="big ghost" id="apClr">清除貼上內容</button>
+</div>
+<div class="card">
+<div class="sum" id="apSum"></div>
+<div id="apList"></div>
+<div class="res" id="apTot"></div>
+<div class="sum warn" id="apWarn"></div>
+<button class="big" id="apImp">匯入今日刷卡到隨手記</button>
+<div class="sum" id="apMsg" style="margin-top:8px"></div>
+</div>
+</section>
 </main>
 <script>
 const CATS=["早餐","午餐","晚餐","飲料","交通","購物","其他"];
@@ -80,10 +97,14 @@ const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth
 function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
 function drawCats(){$("cats").innerHTML=CATS.map(c=>`<button class="${c===cat?"on":""}" data-c="${c}">${c}</button>`).join("")}
 $("cats").onclick=e=>{if(e.target.dataset.c){cat=e.target.dataset.c;drawCats()}};
+function rowHtml(i){return `<div class="row"><input type="checkbox" data-id="${i.id}" ${i.done?"checked":""}><div class="m ${i.done?"done":""}">${i.card?esc(i.note):esc(i.cat)} ${i.amt} 元<br><small>${i.date}${!i.card&&i.note?" · "+esc(i.note):""}</small></div></div>`}
+function srcSort(a,b){return a==="現金"?-1:b==="現金"?1:a.localeCompare(b)}
+function listHtml(){const g={};items.slice().reverse().slice(0,80).forEach(i=>{const k=i.card||"現金";(g[k]=g[k]||[]).push(i)});
+ return Object.keys(g).sort(srcSort).map(k=>{const p=g[k].filter(i=>!i.done),t=Math.round(p.reduce((a,b)=>a+b.amt,0)*100)/100;return `<div class="sum" style="margin-top:10px"><b>${esc(k)}</b>　${p.length?`待補 ${p.length} 筆 / ${t} 元`:"全部已補 ✓"}</div>`+g[k].map(rowHtml).join("")}).join("")||'<small style="color:var(--mut)">還沒有紀錄</small>'}
 function draw(){
- const p=items.filter(i=>!i.done),s=p.reduce((a,b)=>a+b.amt,0);$("pendTip").textContent=p.length?`隨手記還有 ${s} 元尚未補進天天記帳，對帳時會自動扣除，避免重複計算`:"";
+ const p=items.filter(i=>!i.done),s=Math.round(p.reduce((a,b)=>a+b.amt,0)*100)/100,pc=p.filter(i=>!i.card),sc=pc.reduce((a,b)=>a+b.amt,0);$("pendTip").textContent=pc.length?`隨手記還有現金 ${sc} 元尚未補進天天記帳，對帳時會自動扣除，避免重複計算`:"";
  $("sum").textContent=p.length?`還有 ${p.length} 筆沒補進天天記帳，共 ${s} 元`:"全部都補進去了 ✓";
- $("list").innerHTML=items.slice().reverse().slice(0,30).map(i=>`<div class="row"><input type="checkbox" data-id="${i.id}" ${i.done?"checked":""}><div class="m ${i.done?"done":""}">${esc(i.cat)} ${i.amt} 元<br><small>${i.date}${i.note?" · "+esc(i.note):""}</small></div></div>`).join("")||'<small style="color:var(--mut)">還沒有紀錄</small>';
+ $("list").innerHTML=listHtml();
  $("hist").innerHTML=histView().map(h=>`<div class="row"><div class="m">${h.date}<br><small>帳上 ${h.app}${h.pend?" − 待補 "+h.pend:""} / 實際 ${h.real}</small></div><b class="${h.diff<0?"warn":"ok"}">${h.diff>0?"+":""}${h.diff}</b></div>`).join("")||'<small style="color:var(--mut)">'+(hist.length?"今天還沒對帳":"尚無紀錄")+'</small>';
 }
 $("add").onclick=()=>{const a=parseInt($("amt").value,10);if(!a||a<=0){$("amt").focus();return}
@@ -98,9 +119,9 @@ $("clr").onclick=()=>{const n=items.filter(i=>i.done).length;
  if(!n){$("clr").textContent="目前沒有已補紀錄";setTimeout(()=>$("clr").textContent="清除已補紀錄",1500);return}
  if(!clrT){$("clr").textContent=`再按一次，確認清除 ${n} 筆`;clrT=setTimeout(()=>{clrT=null;$("clr").textContent="清除已補紀錄"},3000);return}
  clearTimeout(clrT);clrT=null;items=items.filter(i=>!i.done);save();draw();$("clr").textContent="已清除 ✓";setTimeout(()=>$("clr").textContent="清除已補紀錄",1500)};
-function buildText(){const p=items.filter(i=>!i.done);if(!p.length)return "沒有待補項目";const g={};p.forEach(i=>{(g[i.date]=g[i.date]||[]).push(i)});let all=0;const L=[];
- Object.keys(g).sort().forEach(d=>{const s=g[d].reduce((a,b)=>a+b.amt,0);all+=s;L.push(d);g[d].forEach(i=>L.push(`  ${i.cat} ${i.amt}${i.note?" "+i.note:""}`));L.push(`  ➜ 當日現金合計 ${s} 元`,"")});
- L.push(`總計 ${p.length} 筆，共 ${all} 元`);return L.join("\n")}
+function buildText(){const p=items.filter(i=>!i.done);if(!p.length)return "沒有待補項目";const g={};p.forEach(i=>{const k=i.card||"現金";g[k]=g[k]||{};(g[k][i.date]=g[k][i.date]||[]).push(i)});let all=0;const L=[];
+ Object.keys(g).sort(srcSort).forEach(k=>{L.push("【"+k+"】");Object.keys(g[k]).sort().forEach(d=>{const t=g[k][d].reduce((a,b)=>a+b.amt,0);all+=t;L.push(d);g[k][d].forEach(i=>L.push(`  ${i.card?i.note:i.cat} ${i.amt}${!i.card&&i.note?" "+i.note:""}`));L.push(`  ➜ 當日合計 ${Math.round(t*100)/100} 元`)});L.push("")});
+ L.push(`總計 ${p.length} 筆，共 ${Math.round(all*100)/100} 元`);return L.join("\n")}
 $("copy").onclick=async()=>{const t=buildText();
  try{await navigator.clipboard.writeText(t);$("copy").textContent="已複製 ✓"}catch(e){$("copy").textContent="請手動長按選取"}
  setTimeout(()=>$("copy").textContent="複製待補清單",1500)};
@@ -109,15 +130,39 @@ const unusedExport=async()=>{const L=["【現金記錄】"+today(),""];items.for
  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e.name==="AbortError")return}
  const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove()};
 $("chk").onclick=()=>{const a=parseInt($("appBal").value,10),r=parseInt($("realBal").value,10);if(isNaN(a)||isNaN(r))return;
- const pend=items.filter(i=>!i.done).reduce((x,y)=>x+y.amt,0);const exp=a-pend;const d=r-exp;hist.push({date:today(),app:a,pend,real:r,diff:d});save();draw();
+ const pend=items.filter(i=>!i.done&&!i.card).reduce((x,y)=>x+y.amt,0);const exp=a-pend;const d=r-exp;hist.push({date:today(),app:a,pend,real:r,diff:d});save();draw();
  $("brk").textContent=`帳上 ${a}${pend?` − 待補 ${pend}`:""} = 預期現金 ${exp}；實際 ${r}`;
  if(d<0){$("res").className="res warn";$("res").textContent=`漏記了約 ${-d} 元`;gapAmt=-d;$("gap").classList.remove("hide")}
  else if(d>0){$("res").className="res warn";$("res").textContent=`錢包多了 ${d} 元（可能少記收入或找零）`;$("gap").classList.add("hide")}
  else{$("res").className="res ok";$("res").textContent="帳目完全吻合 🎉";$("gap").classList.add("hide")}};
 $("gap").onclick=()=>{items.push({id:Date.now(),amt:gapAmt,cat:"其他",note:"對帳差額（未明現金支出）",date:today(),done:false});save();draw();$("gap").classList.add("hide");show(1)};
-function show(n){$("p1").classList.toggle("hide",n!==1);$("p2").classList.toggle("hide",n!==2);$("t1").classList.toggle("on",n===1);$("t2").classList.toggle("on",n===2)}
-$("t1").onclick=()=>show(1);$("t2").onclick=()=>show(2);
-load();drawCats();draw();
+function show(n){$("p1").classList.toggle("hide",n!==1);$("p2").classList.toggle("hide",n!==2);$("p3").classList.toggle("hide",n!==3);$("t1").classList.toggle("on",n===1);$("t2").classList.toggle("on",n===2);$("t3").classList.toggle("on",n===3)}
+$("t1").onclick=()=>show(1);$("t2").onclick=()=>show(2);$("t3").onclick=()=>{show(3);apParse()};
+let apRows=[];
+function apParse(){const md=today().slice(5).replace("-","/"),rows=[];let other=0,bad=[];
+ $("apTxt").value.split(/\r?\n/).forEach(r=>{r=r.trim();if(!r)return;const p=r.split("|").map(x=>x.trim()),a=parseFloat((p[2]||"").replace(/[^0-9.]/g,""));
+  if(p.length<3||!/^\d{1,2}\/\d{1,2}$/.test(p[0])||!(a>0)){bad.push(r);return}
+  if(p[0].split("/").map(n=>String(+n).padStart(2,"0")).join("/")!==md){other++;return}
+  rows.push({m:p[1],a,c:p[3]||"未知卡"})});
+ apRows=rows;const f=n=>(Math.round(n*100)/100).toLocaleString("zh-TW"),g={};rows.forEach(x=>(g[x.c]=g[x.c]||[]).push(x));
+ $("apList").innerHTML=Object.keys(g).sort().map(k=>`<div class="sum" style="margin-top:10px"><b>${esc(k)}</b>　${g[k].length} 筆 / ${f(g[k].reduce((t,x)=>t+x.a,0))} 元</div>`+g[k].map(x=>`<div class="row"><div class="m">${esc(x.m)}</div><b>${f(x.a)}</b></div>`).join("")).join("")||'<small style="color:var(--mut)">今天沒有刷卡紀錄</small>';
+ $("apSum").textContent=rows.length?`今日 ${md} 共 ${rows.length} 筆`:"";
+ $("apTot").textContent=rows.length?`合計 ${f(rows.reduce((t,x)=>t+x.a,0))} 元`:"";
+ $("apWarn").innerHTML=(other?`其他日期 ${other} 筆未計入`:"")+(bad.length?`${other?"<br>":""}${bad.length} 行格式不符，未計入：<br>${bad.map(esc).join("<br>")}`:"")}
+function apImport(){apParse();let log={};try{log=JSON.parse(localStorage.getItem("cg_imp")||"{}")}catch(e){}
+ const seen={},d=today();let add=0,skip=0;
+ apRows.forEach(x=>{const k=[d,x.c,x.m,x.a].join("|");seen[k]=(seen[k]||0)+1;if(seen[k]<=(log[k]||0)){skip++;return}
+  items.push({id:Date.now()+add,amt:x.a,cat:"刷卡",note:x.m,card:x.c,date:d,done:false});add++});
+ Object.keys(seen).forEach(k=>{log[k]=Math.max(log[k]||0,seen[k])});
+ const c=new Date(Date.now()-14*864e5),ck=c.getFullYear()+"-"+String(c.getMonth()+1).padStart(2,"0")+"-"+String(c.getDate()).padStart(2,"0");
+ Object.keys(log).forEach(k=>{if(k.slice(0,10)<ck)delete log[k]});
+ try{localStorage.setItem("cg_imp",JSON.stringify(log))}catch(e){}
+ if(add){save();draw()}
+ $("apMsg").textContent=add||skip?`新增 ${add} 筆到隨手記${skip?`，略過已匯入 ${skip} 筆`:""}`:"今天沒有可匯入的刷卡紀錄"}
+$("apImp").onclick=apImport;
+$("apTxt").oninput=()=>{try{localStorage.setItem("cg_ap",$("apTxt").value)}catch(e){}apParse()};
+$("apClr").onclick=()=>{$("apTxt").value="";try{localStorage.removeItem("cg_ap")}catch(e){}apParse()};
+load();drawCats();draw();try{$("apTxt").value=localStorage.getItem("cg_ap")||""}catch(e){}apParse();
 </script>
 </body>
 </html>
