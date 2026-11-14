@@ -97,7 +97,7 @@ const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth
 function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
 function drawCats(){$("cats").innerHTML=CATS.map(c=>`<button class="${c===cat?"on":""}" data-c="${c}">${c}</button>`).join("")}
 $("cats").onclick=e=>{if(e.target.dataset.c){cat=e.target.dataset.c;drawCats()}};
-function rowHtml(i){return `<div class="row"><input type="checkbox" data-id="${i.id}" ${i.done?"checked":""}><div class="m ${i.done?"done":""}">${i.card?esc(i.note):esc(i.cat)} ${i.amt} 元<br><small>${i.date}${!i.card&&i.note?" · "+esc(i.note):""}</small></div></div>`}
+function rowHtml(i){return `<div class="row"><input type="checkbox" data-id="${i.id}" ${i.done?"checked":""}><div class="m ${i.done?"done":""}">${i.card?esc(i.note):esc(i.cat)} ${i.amt} 元<br><small>${i.date}${i.card?" · "+esc(i.card):""}${!i.card&&i.note?" · "+esc(i.note):""}</small></div></div>`}
 function srcSort(a,b){return a==="現金"?-1:b==="現金"?1:a.localeCompare(b)}
 function listHtml(){const g={};items.slice().reverse().slice(0,80).forEach(i=>{const k=i.card||"現金";(g[k]=g[k]||[]).push(i)});
  return Object.keys(g).sort(srcSort).map(k=>{const p=g[k].filter(i=>!i.done),t=Math.round(p.reduce((a,b)=>a+b.amt,0)*100)/100;return `<div class="sum" style="margin-top:10px"><b>${esc(k)}</b>　${p.length?`待補 ${p.length} 筆 / ${t} 元`:"全部已補 ✓"}</div>`+g[k].map(rowHtml).join("")}).join("")||'<small style="color:var(--mut)">還沒有紀錄</small>'}
